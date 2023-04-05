@@ -1,5 +1,4 @@
-ansicolor==0.3.2
+ansicolors==1.1.8
 dill==0.3.6
 numpy==1.24.2
-pywatchman==1.4.1
 tqdm==4.65.0
