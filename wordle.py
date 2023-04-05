@@ -6,7 +6,7 @@ from tqdm import tqdm
 Prereqs: Python 3
 
 Download file from https://drive.google.com/file/d/1oGDf1wjWp5RF_X9C7HoedhIWMh5uJs8s/view
-$ pip install ansicolor
+$ pip install ansicolors
 '''
 from colors import green, yellow
 import logging
@@ -214,11 +214,11 @@ def give_clue(guess, reference):
     # Other indices are blacks.
     return Clue(guess, greens, yellows)
 
-print(give_clue('HAPPY', 'HARPY'))
-print(give_clue('HARPY', 'HAPPY'))
-print(give_clue('ABCDE', 'EDCBA'))
-print(give_clue('AAAAA', 'EDCBA')) # Should be 4 blacks and a green.
-print(give_clue('AAAAB', 'EDCBA')) # Should be 1 yellow and 3 blacks and a yellow.
+# print(give_clue('HAPPY', 'HARPY'))
+# print(give_clue('HARPY', 'HAPPY'))
+# print(give_clue('ABCDE', 'EDCBA'))
+# print(give_clue('AAAAA', 'EDCBA')) # Should be 4 blacks and a green.
+# print(give_clue('AAAAB', 'EDCBA')) # Should be 1 yellow and 3 blacks and a yellow.
 
 ALLOWED_ROUNDS = 1
 
@@ -606,6 +606,68 @@ def interactive_add_clue(game):
     indented_clue_collection = '\n'.join(['\t' + line for line in str(game.clue_collection).split('\n')])
     out.info(f"New game:\n{indented_clue_collection}")
 
+
+def display_guesses(guesses, start, end):
+    out.info(f"Displaying guesses {max(1, start + 1)}-{min(end, len(guesses))} (of {len(guesses)}):")
+    for num, word, ref in guesses[max(0, start):end]:
+        out.info(f"\t{word}: {num} guesses left (for answer {ref})")
+    
+def interactive_survey_guesses(game):
+    # Cache guesses
+    best_guess, num = optimal_player(None, game.clue_collection, game.guesses_left, game.player_cache, game.adversary_cache)
+    print(f"Best guess: {best_guess} with {num - 1} guesses afterward")
+
+    guesses = []
+    for word in game.clue_collection.word_list:
+        _, num, _, ref = game.adversary_cache.get((word, game.clue_collection), (99,)*4)
+        guesses.append((num, word, ref))
+
+    guesses.sort()
+
+    sentence = ''
+    interval = 20
+    start = 0
+    end = start + interval
+    display_guesses(guesses, start, end)
+    while True:
+        out.prompt('Survey guesses')
+        sentence = input().strip().lower()
+        if not sentence or sentence in ['exit', 'quit', 'QUIT', 'q', '\\ex', '\\q']:
+            return
+        if sentence in ['help', 'h', '?']:
+            out.info("Options: next, previous, quit, all, more, less")
+            continue
+        if sentence in ['more', 'm']:
+            if end >= len(guesses):
+                out.info('At pagination limit')
+                continue
+            interval += 10
+        if sentence in ['less', 'l']:
+            if interval <= 10:
+                out.info('At min page size')
+                continue
+            interval -= 10
+        if sentence in ['next', 'n']:
+            if end >= len(guesses):
+                out.info('At pagination limit')
+                continue
+            start += interval
+        if sentence in ['previous', 'p']:
+            if start <= 0:
+                out.info('At start page')
+                continue
+            start -= interval
+            start = max(start, 0)
+        if sentence in ['all', 'a']:
+            display_guesses(guesses, 0, 9999)
+            continue
+
+        end = start + interval
+
+        display_guesses(guesses, start, end)
+
+            
+
 def enter_interactive_game():
     game = AdversarialGame()
     player_cache = {}
@@ -620,16 +682,19 @@ def enter_interactive_game():
                 out.info('Goodbye!')
                 break
         if sentence.strip().lower() in ['help', 'h', '?']:
-            out.info("Options: sentence, best guess, view clues, words left, add clue, restart, help, quit")
+            out.info("Options: sentence, best guess, survey guesses, view clues, words left, add clue, restart, help, quit")
             continue
-        if sentence.strip().lower() in ['best guess', 'b', 'g']:
+        if sentence.strip().lower() in ['best guess', 'b']:
             best_guess, num = optimal_player(None, game.clue_collection, game.guesses_left, game.player_cache, game.adversary_cache)
-            out.info("Your best guess is:", best_guess, "with", num, "guesses remaining")
+            out.info("Your best guess is:", best_guess, "with", num - 1, "guesses remaining")
             response, num = adversarial_server(best_guess, game.clue_collection, game.guesses_left - 1, game.player_cache, game.adversary_cache)
             out.info("The worst case response would be", response)
             continue
         if sentence.strip().lower() in ['view clues', 'v']:
             out.info(game.clue_collection, '', sep='\n')
+            continue
+        if sentence.strip().lower() in ['survey guesses', 'survey', 's', 'g']:
+            interactive_survey_guesses(game)
             continue
         if sentence.strip().lower() in ['words left', 'w', 'l']:
             out.info(game.clue_collection.word_list, '', sep='\n')
