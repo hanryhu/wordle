@@ -619,7 +619,8 @@ def interactive_survey_guesses(game):
 
     guesses = []
     for word in game.clue_collection.word_list:
-        _, num, _, ref = game.adversary_cache.get((word, game.clue_collection), (99,)*4)
+        ref, num = adversarial_server(word, game.clue_collection, game.guesses_left - 1, game.player_cache, game.adversary_cache)
+        # _, num, _, ref = game.adversary_cache.get((word, game.clue_collection), ('?',)*4)
         guesses.append((num, word, ref))
 
     guesses.sort()
